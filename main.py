@@ -21,6 +21,10 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.VIDEORESIZE:
+                bigger_size = max(event.w, event.h)
+                bigger_size = 800 if bigger_size > 800 else bigger_size
+                surface = pygame.display.set_mode((bigger_size, bigger_size), pygame.RESIZABLE)
 
         surface_width = surface.get_width()
         surface_height = surface.get_height()
@@ -31,7 +35,6 @@ def main():
         if ore is not None:
             ore.x = 2
             belt.move_ore(ore)
-            print(f"x: {ore.x}  y: {ore.y}")
             
         
         surface.fill(0x000000)
