@@ -1,6 +1,7 @@
 from pygame import Rect
 import pygame
 import sys
+import math
 
 def main():
     pygame.init()
@@ -24,6 +25,9 @@ def main():
     hub = Collector(3, 5, 3, 3)
 
     while running:
+        surface_size = surface.get_width()
+        tile_size = 1 if surface_size < tile_amount else round(surface_size / tile_amount)
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -32,11 +36,19 @@ def main():
                 if bigger_size > 800: bigger_size = 800
                 elif bigger_size < 400: bigger_size = 400
                 surface = pygame.display.set_mode((bigger_size, bigger_size), pygame.RESIZABLE)
+                surface_size = surface.get_width()
+                tile_size = 1 if surface_size < tile_amount else round(surface_size / tile_amount)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                rel_x = math.floor(pos[0]/tile_size)
+                rel_y = math.floor(pos[1]/tile_size)
+                existing_belt = list(filter(lambda belt: rel_x == belt.x and rel_y == belt.y, belt_buffer))
+                
+                if existing_belt:
+                    belt_buffer.remove(existing_belt[0])
+                        
+                belt_buffer.append(Belt(rel_x, rel_y, Vec2(0, 1))) 
 
-        surface_size = surface.get_width()
-        tile_size = 1 if surface_size < tile_amount else round(surface_size / tile_amount)
-        
-        
         if frame_counter == 60:
             ore = miner.mine([ore_patch])
             if ore is not None:
@@ -94,7 +106,7 @@ class OrePatch:
         self.y = y
         
 class Ore:
-    def __init__(self, x: float, y: float, amount: int, locked: bool = False) -> None:
+    def __init__(self, x: int, y: int, amount: int, locked: bool = False) -> None:
         self.x = x
         self.y = y
         self.amount = amount
