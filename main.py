@@ -2,6 +2,7 @@ from pygame import Rect
 import pygame
 import sys
 import math
+import copy
 
 def main():
     pygame.init()
@@ -23,14 +24,28 @@ def main():
     belt_buffer: list[Belt] = [Belt(2, 3, Vec2(0, 1)), Belt(2, 4, Vec2(0, 1)), Belt(2, 5, Vec2(1, 0))]
     ore_buffer: list[Ore] = []
     hub = Collector(3, 5, 3, 3)
+    
+    rotation = Vec2(0, 1)
 
+    #game loop
     while running:
         surface_size = surface.get_width()
         tile_size = 1 if surface_size < tile_amount else round(surface_size / tile_amount)
         
+        #event listener
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.key.key_code("r"):
+                    if rotation.x != 0:
+                        rotation.y = rotation.x
+                        rotation.x = 0
+                    elif rotation.y != 0:
+                        rotation.x = rotation.y * -1
+                        rotation.y = 0
+                        
             if event.type == pygame.VIDEORESIZE:
                 bigger_size = max(event.w, event.h)
                 if bigger_size > 800: bigger_size = 800
@@ -38,28 +53,26 @@ def main():
                 surface = pygame.display.set_mode((bigger_size, bigger_size), pygame.RESIZABLE)
                 surface_size = surface.get_width()
                 tile_size = 1 if surface_size < tile_amount else round(surface_size / tile_amount)
+                
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
                 rel_x = math.floor(pos[0]/tile_size)
                 rel_y = math.floor(pos[1]/tile_size)
                 existing_belt = list(filter(lambda belt: rel_x == belt.x and rel_y == belt.y, belt_buffer))
                 
-                if existing_belt:
+                if existing_belt and existing_belt[0].speed != rotation:
                     belt_buffer.remove(existing_belt[0])
+                    belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
+                elif not existing_belt:
+                    belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
                         
-                belt_buffer.append(Belt(rel_x, rel_y, Vec2(0, 1))) 
 
         if frame_counter == 60:
-            ore = miner.mine([ore_patch])
-            if ore is not None:
+            ore = miner.mine([ore_patch], belt_buffer)
+            if ore is not None and ore not in ore_buffer:
                 ore_buffer.append(ore)
         
             for o in ore_buffer:
-                
-                if o.x == 3 and o.y == 3:
-                    o.x = 2
-                    o.locked = True
-                    
                 for b in belt_buffer:
                     if o.locked: continue
                     b.move_ore(o)
@@ -77,7 +90,7 @@ def main():
                 for b in belt_buffer:
                     surface.fill(0xff00ff, Rect((b.x * tile_size) + 4, (b.y * tile_size) + 4, tile_size - 8, tile_size - 8))
                 for o in ore_buffer:
-                    surface.fill(0x000000, Rect((o.x * tile_size) + 4, (o.y * tile_size) + 4, tile_size - 8, tile_size - 8))
+                    surface.fill(0x000000, Rect((o.x * tile_size) + 6, (o.y * tile_size) + 6, tile_size - 12, tile_size - 12))
                 
                 surface.fill(0xffffff, Rect((miner.x * tile_size) + 4, (miner.y * tile_size) + 4, tile_size - 8, tile_size - 8))
                 surface.fill(0x00ffff, Rect((hub.x * tile_size) + 4, (hub.y * tile_size) + 4, (tile_size * hub.width) - 8, (tile_size * hub.height) - 8))
@@ -106,22 +119,10 @@ class OrePatch:
         self.y = y
         
 class Ore:
-    def __init__(self, x: int, y: int, amount: int, locked: bool = False) -> None:
+    def __init__(self, x: int, y: int, locked: bool = False) -> None:
         self.x = x
         self.y = y
-        self.amount = amount
         self.locked = locked
-        
-class Miner:
-    def __init__(self, x: int , y: int) -> None:
-        self.x = x
-        self.y = y
-    
-    def mine(self, ore_patches: list[OrePatch]) -> Ore | None:
-        if not list(filter(lambda ore: ore.x == self.x and ore.y == self.y, ore_patches)):
-            return
-        
-        return Ore(self.x, self.y, 1)
         
 class Belt:
     def __init__(self, x: int , y: int, speed: Vec2) -> None:
@@ -137,6 +138,20 @@ class Belt:
         ore.x += self.speed.x
         ore.y += self.speed.y
         ore.locked = True
+        
+class Miner:
+    def __init__(self, x: int , y: int) -> None:
+        self.x = x
+        self.y = y
+    
+    def mine(self, ore_patches: list[OrePatch], belt_buffer: list[Belt]) -> Ore | None:
+        if not list(filter(lambda ore: ore.x == self.x and ore.y == self.y, ore_patches)):
+            return
+        
+        
+        near_belt = list(filter(lambda belt: belt.x == self.x + 1 or belt.x == self.x - 1 or belt.y == self.y + 1 or belt.y == self.y - 1, belt_buffer))
+        
+        return Ore(self.x, self.y) if not near_belt else Ore(near_belt[0].x, near_belt[0].y, True)
         
 class Collector:
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
