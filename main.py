@@ -12,51 +12,46 @@ class Vec2:
 
 @dataclass
 class OrePatch: 
-    x: int 
-    y: int
+    pos: Vec2
         
 @dataclass
 class Ore:
-    x: int 
-    y: int
+    pos: Vec2
     locked: bool = False
         
 @dataclass
 class Belt:
-    x: int
-    y: int
+    pos: Vec2
     speed: Vec2
 
 @dataclass
 class Miner:
-    x: int
-    y: int
+    pos: Vec2
 
 @dataclass
 class Hub:
-    x: int
-    y: int
+    pos: Vec2
     width: int
     height: int
 
-def move_ore(node: Belt, ore: Ore) -> None:
-        if ore.x != node.x or ore.y != node.y or ore.locked == True:
+def move_ore(belt: Belt, ore: Ore) -> None:
+        if ore.pos.x != belt.pos.x or ore.pos.y != belt.pos.y or ore.locked == True:
             return 
            
-        ore.x += node.speed.x
-        ore.y += node.speed.y
+        ore.pos.x += belt.speed.x
+        ore.pos.y += belt.speed.y
         ore.locked = True
 
-def mine(node: Miner, ore_patches: list[OrePatch], belt_buffer: list[Belt]) -> Ore | None:
-        if not list(filter(lambda ore: ore.x == node.x and ore.y == node.y, ore_patches)):
+def mine(miner: Miner, ore_patches: list[OrePatch], belt_buffer: list[Belt]) -> Ore | None:
+        if not list(filter(lambda ore: ore.pos.x == miner.pos.x and ore.pos.y == miner.pos.y, ore_patches)):
             return
         
-        near_belt = list(filter(lambda belt: belt.x == node.x + 1 or belt.x == node.x - 1 or belt.y == node.y + 1 or belt.y == node.y - 1, belt_buffer))
+        near_belt = list(filter(lambda belt: belt.pos.x == miner.pos.x + 1 or belt.pos.x == miner.pos.x - 1 or belt.pos.y == miner.pos.y + 1 or belt.pos.y == miner.pos.y - 1, belt_buffer))
         
-        return Ore(node.x, node.y) if not near_belt else Ore(near_belt[0].x, near_belt[0].y, True)
+        return Ore(Vec2(miner.pos.x, miner.pos.y)) if not near_belt else Ore(Vec2(near_belt[0].pos.x, near_belt[0].pos.y), True)
 
-def pickup(node: Hub, ore: Ore, ore_buffer: list[Ore]) -> int:
-    if (not ore.x in range(node.x, node.x + node.width) or not ore.y in range(node.y, node.y + node.height)):
+def pickup(hub: Hub, ore: Ore, ore_buffer: list[Ore]) -> int:
+    if (not ore.pos.x in range(hub.pos.x, hub.pos.x + hub.width) or not ore.pos.y in range(hub.pos.y, hub.pos.y + hub.height)):
         return 0
     
     ore_buffer.remove(ore)
@@ -77,11 +72,11 @@ def main():
     
     obtained_ore = 0
     
-    ore_patch = OrePatch(3, 3)
-    miner = Miner(3, 3)
-    belt_buffer: list[Belt] = [Belt(2, 3, Vec2(0, 1)), Belt(2, 4, Vec2(0, 1)), Belt(2, 5, Vec2(1, 0))]
+    ore_patch = OrePatch(Vec2(3, 3))
+    miner = Miner(Vec2(3, 3))
+    belt_buffer: list[Belt] = [Belt(Vec2(2, 3), Vec2(0, 1)), Belt(Vec2(2, 4), Vec2(0, 1)), Belt(Vec2(2, 5), Vec2(1, 0))]
     ore_buffer: list[Ore] = []
-    hub = Hub(3, 5, 3, 3)
+    hub = Hub(Vec2(3, 5), 3, 3)
     
     rotation = Vec2(0, 1)
 
@@ -108,6 +103,7 @@ def main():
                 bigger_size = max(event.w, event.h)
                 if bigger_size > 800: bigger_size = 800
                 elif bigger_size < 400: bigger_size = 400
+                
                 surface = pygame.display.set_mode((bigger_size, bigger_size), pygame.RESIZABLE)
                 surface_size = surface.get_width()
                 tile_size = 1 if surface_size < tile_amount else round(surface_size / tile_amount)
@@ -116,13 +112,13 @@ def main():
                 pos = pygame.mouse.get_pos()
                 rel_x = math.floor(pos[0]/tile_size)
                 rel_y = math.floor(pos[1]/tile_size)
-                existing_belt = list(filter(lambda belt: rel_x == belt.x and rel_y == belt.y, belt_buffer))
+                existing_belt = list(filter(lambda belt: rel_x == belt.pos.x and rel_y == belt.pos.y, belt_buffer))
                 
                 if existing_belt and existing_belt[0].speed != rotation:
                     belt_buffer.remove(existing_belt[0])
-                    belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
+                    belt_buffer.append(Belt(Vec2(rel_x, rel_y), copy.copy(rotation))) 
                 elif not existing_belt:
-                    belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
+                    belt_buffer.append(Belt(Vec2(rel_x, rel_y), copy.copy(rotation))) 
                         
         #belt movement
         if frame_counter == 60:
@@ -145,15 +141,15 @@ def main():
         for x in range(0, surface_size, tile_size):
             for y in range(0, surface_size, tile_size):
                 surface.fill(0x86c06c, Rect(x + tile_gap, y + tile_gap, tile_size - tile_gap, tile_size - tile_gap))
-                surface.fill(0x2f6951, Rect((ore_patch.x * tile_size) + tile_gap, (ore_patch.y * tile_size) + tile_gap, tile_size - tile_gap, tile_size - tile_gap))
+                surface.fill(0x2f6951, Rect((ore_patch.pos.x * tile_size) + tile_gap, (ore_patch.pos.y * tile_size) + tile_gap, tile_size - tile_gap, tile_size - tile_gap))
                 
-                for b in belt_buffer:
-                    surface.fill(0xff00ff, Rect((b.x * tile_size) + 4, (b.y * tile_size) + 4, tile_size - 8, tile_size - 8))
-                for o in ore_buffer:
-                    surface.fill(0x000000, Rect((o.x * tile_size) + 6, (o.y * tile_size) + 6, tile_size - 12, tile_size - 12))
+                for belt in belt_buffer:
+                    surface.fill(0xff00ff, Rect((belt.pos.x * tile_size) + 4, (belt.pos.y * tile_size) + 4, tile_size - 8, tile_size - 8))
+                for ore in ore_buffer:
+                    surface.fill(0x000000, Rect((ore.pos.x * tile_size) + 6, (ore.pos.y * tile_size) + 6, tile_size - 12, tile_size - 12))
                 
-                surface.fill(0xffffff, Rect((miner.x * tile_size) + 4, (miner.y * tile_size) + 4, tile_size - 8, tile_size - 8))
-                surface.fill(0x00ffff, Rect((hub.x * tile_size) + 4, (hub.y * tile_size) + 4, (tile_size * hub.width) - 8, (tile_size * hub.height) - 8))
+                surface.fill(0xffffff, Rect((miner.pos.x * tile_size) + 4, (miner.pos.y * tile_size) + 4, tile_size - 8, tile_size - 8))
+                surface.fill(0x00ffff, Rect((hub.pos.x * tile_size) + 4, (hub.pos.y * tile_size) + 4, (tile_size * hub.width) - 8, (tile_size * hub.height) - 8))
         
         pygame.display.update()
 
