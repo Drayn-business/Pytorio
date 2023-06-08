@@ -1,8 +1,66 @@
+from dataclasses import dataclass
 from pygame import Rect
 import pygame
 import sys
 import math
 import copy
+
+@dataclass
+class Vec2:
+    x: int
+    y: int
+
+@dataclass
+class OrePatch: 
+    x: int 
+    y: int
+        
+@dataclass
+class Ore:
+    x: int 
+    y: int
+    locked: bool = False
+        
+@dataclass
+class Belt:
+    x: int
+    y: int
+    speed: Vec2
+
+@dataclass
+class Miner:
+    x: int
+    y: int
+
+@dataclass
+class Hub:
+    x: int
+    y: int
+    width: int
+    height: int
+
+def move_ore(node: Belt, ore: Ore) -> None:
+        if ore.x != node.x or ore.y != node.y or ore.locked == True:
+            return 
+           
+        ore.x += node.speed.x
+        ore.y += node.speed.y
+        ore.locked = True
+
+def mine(node: Miner, ore_patches: list[OrePatch], belt_buffer: list[Belt]) -> Ore | None:
+        if not list(filter(lambda ore: ore.x == node.x and ore.y == node.y, ore_patches)):
+            return
+        
+        near_belt = list(filter(lambda belt: belt.x == node.x + 1 or belt.x == node.x - 1 or belt.y == node.y + 1 or belt.y == node.y - 1, belt_buffer))
+        
+        return Ore(node.x, node.y) if not near_belt else Ore(near_belt[0].x, near_belt[0].y, True)
+
+def pickup(node: Hub, ore: Ore, ore_buffer: list[Ore]) -> int:
+    if (not ore.x in range(node.x, node.x + node.width) or not ore.y in range(node.y, node.y + node.height)):
+        return 0
+    
+    ore_buffer.remove(ore)
+    return 1
 
 def main():
     pygame.init()
@@ -23,7 +81,7 @@ def main():
     miner = Miner(3, 3)
     belt_buffer: list[Belt] = [Belt(2, 3, Vec2(0, 1)), Belt(2, 4, Vec2(0, 1)), Belt(2, 5, Vec2(1, 0))]
     ore_buffer: list[Ore] = []
-    hub = Collector(3, 5, 3, 3)
+    hub = Hub(3, 5, 3, 3)
     
     rotation = Vec2(0, 1)
 
@@ -66,20 +124,22 @@ def main():
                 elif not existing_belt:
                     belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
                         
-
+        #belt movement
         if frame_counter == 60:
-            ore = miner.mine([ore_patch], belt_buffer)
+            ore = mine(miner, [ore_patch], belt_buffer)
             if ore is not None and ore not in ore_buffer:
                 ore_buffer.append(ore)
         
             for o in ore_buffer:
                 for b in belt_buffer:
                     if o.locked: continue
-                    b.move_ore(o)
+                    move_ore(b, o)
                     
-                obtained_ore += hub.pickup(o, ore_buffer)
+                obtained_ore += pickup(hub, o, ore_buffer)
         
             print(obtained_ore)
+        
+        #render
         
         surface.fill(0x000000)
         for x in range(0, surface_size, tile_size):
@@ -107,65 +167,6 @@ def main():
 
     pygame.quit()
     sys.exit()
-
-class Vec2:
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x
-        self.y = y
-
-class OrePatch:
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x
-        self.y = y
-        
-class Ore:
-    def __init__(self, x: int, y: int, locked: bool = False) -> None:
-        self.x = x
-        self.y = y
-        self.locked = locked
-        
-class Belt:
-    def __init__(self, x: int , y: int, speed: Vec2) -> None:
-        self.x = x
-        self.y = y
-        #in coord/s
-        self.speed = speed
-        
-    def move_ore(self, ore: Ore) -> None:
-        if ore.x != self.x or ore.y != self.y or ore.locked == True:
-            return 
-           
-        ore.x += self.speed.x
-        ore.y += self.speed.y
-        ore.locked = True
-        
-class Miner:
-    def __init__(self, x: int , y: int) -> None:
-        self.x = x
-        self.y = y
-    
-    def mine(self, ore_patches: list[OrePatch], belt_buffer: list[Belt]) -> Ore | None:
-        if not list(filter(lambda ore: ore.x == self.x and ore.y == self.y, ore_patches)):
-            return
-        
-        
-        near_belt = list(filter(lambda belt: belt.x == self.x + 1 or belt.x == self.x - 1 or belt.y == self.y + 1 or belt.y == self.y - 1, belt_buffer))
-        
-        return Ore(self.x, self.y) if not near_belt else Ore(near_belt[0].x, near_belt[0].y, True)
-        
-class Collector:
-    def __init__(self, x: int, y: int, width: int, height: int) -> None:
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        
-    def pickup(self, ore: Ore, ore_buffer: list[Ore]) -> int:
-        if (not ore.x in range(self.x, self.x + self.width) or not ore.y in range(self.y, self.y + self.height)):
-            return 0
-        
-        ore_buffer.remove(ore)
-        return 1
 
 if __name__ == "__main__":
     main()
