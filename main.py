@@ -10,45 +10,52 @@ class Vec2:
     x: int
     y: int
 
-@dataclass
+def is_equal_vec2(first_vec: Vec2, second_vec: Vec2) -> bool:
+    return first_vec.x == second_vec.x and first_vec.y == second_vec.y
+
+def is_adjacent_vec2(vec: Vec2, near_vec: Vec2) -> bool:
+    return vec.x == near_vec.x + 1 or vec.x == near_vec.x - 1 or vec.y == near_vec.y + 1 or vec.y == near_vec.y - 1
+
 class OrePatch: 
-    pos: Vec2
+    def __init__(self, x: int, y: int) -> None:
+        self.pos = Vec2(x, y)
         
-@dataclass
 class Ore:
-    pos: Vec2
-    locked: bool = False
+    def __init__(self, x: int, y: int, locked: bool = False) -> None:
+        self.pos = Vec2(x, y)
+        self.locked = locked
         
-@dataclass
 class Belt:
-    pos: Vec2
-    speed: Vec2
+    def __init__(self, x: int, y: int, speed: Vec2) -> None:
+        self.pos = Vec2(x, y)
+        self.speed = speed
 
-@dataclass
 class Miner:
-    pos: Vec2
+    def __init__(self, x: int, y: int) -> None:
+        self.pos = Vec2(x, y)
 
-@dataclass
 class Hub:
-    pos: Vec2
-    width: int
-    height: int
+    def __init__(self, x: int, y: int, width: int, height: int) -> None:
+        self.pos = Vec2(x, y)
+        self.width = width
+        self.height = height
+
 
 def move_ore(belt: Belt, ore: Ore) -> None:
-        if ore.pos.x != belt.pos.x or ore.pos.y != belt.pos.y or ore.locked == True:
-            return 
-           
-        ore.pos.x += belt.speed.x
-        ore.pos.y += belt.speed.y
-        ore.locked = True
+    if ore.locked == True or not is_equal_vec2(belt.pos, ore.pos):
+        return 
+        
+    ore.pos.x += belt.speed.x
+    ore.pos.y += belt.speed.y
+    ore.locked = True
 
 def mine(miner: Miner, ore_patches: list[OrePatch], belt_buffer: list[Belt]) -> Ore | None:
-        if not list(filter(lambda ore: ore.pos.x == miner.pos.x and ore.pos.y == miner.pos.y, ore_patches)):
+        if not list(filter(lambda ore: is_equal_vec2(ore.pos, miner.pos), ore_patches)):
             return
         
-        near_belt = list(filter(lambda belt: belt.pos.x == miner.pos.x + 1 or belt.pos.x == miner.pos.x - 1 or belt.pos.y == miner.pos.y + 1 or belt.pos.y == miner.pos.y - 1, belt_buffer))
+        near_belt = list(filter(lambda belt: is_adjacent_vec2(belt.pos, miner.pos), belt_buffer))
         
-        return Ore(Vec2(miner.pos.x, miner.pos.y)) if not near_belt else Ore(Vec2(near_belt[0].pos.x, near_belt[0].pos.y), True)
+        return Ore(miner.pos.x, miner.pos.y) if not near_belt else Ore(near_belt[0].pos.x, near_belt[0].pos.y, True)
 
 def pickup(hub: Hub, ore: Ore, ore_buffer: list[Ore]) -> int:
     if (not ore.pos.x in range(hub.pos.x, hub.pos.x + hub.width) or not ore.pos.y in range(hub.pos.y, hub.pos.y + hub.height)):
@@ -72,11 +79,11 @@ def main():
     
     obtained_ore = 0
     
-    ore_patch = OrePatch(Vec2(3, 3))
-    miner = Miner(Vec2(3, 3))
-    belt_buffer: list[Belt] = [Belt(Vec2(2, 3), Vec2(0, 1)), Belt(Vec2(2, 4), Vec2(0, 1)), Belt(Vec2(2, 5), Vec2(1, 0))]
+    ore_patch = OrePatch(3, 3)
+    miner = Miner(3, 3)
+    belt_buffer: list[Belt] = [Belt(2, 3, Vec2(0, 1)), Belt(2, 4, Vec2(0, 1)), Belt(2, 5, Vec2(1, 0))]
     ore_buffer: list[Ore] = []
-    hub = Hub(Vec2(3, 5), 3, 3)
+    hub = Hub(3, 5, 3, 3)
     
     rotation = Vec2(0, 1)
 
@@ -114,11 +121,11 @@ def main():
                 rel_y = math.floor(pos[1]/tile_size)
                 existing_belt = list(filter(lambda belt: rel_x == belt.pos.x and rel_y == belt.pos.y, belt_buffer))
                 
-                if existing_belt and existing_belt[0].speed != rotation:
+                if existing_belt and not is_equal_vec2(existing_belt[0].speed, rotation):
                     belt_buffer.remove(existing_belt[0])
-                    belt_buffer.append(Belt(Vec2(rel_x, rel_y), copy.copy(rotation))) 
+                    belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
                 elif not existing_belt:
-                    belt_buffer.append(Belt(Vec2(rel_x, rel_y), copy.copy(rotation))) 
+                    belt_buffer.append(Belt(rel_x, rel_y, copy.copy(rotation))) 
                         
         #belt movement
         if frame_counter == 60:
